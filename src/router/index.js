@@ -11,6 +11,7 @@ const BasicExample = () => (
   	<div>
 	    <Route path="/test" component={Test}/>
 	    <Route path="/home" component={Views.Home}/>
+      <Route path="/cart" component={Views.CartPage}/>
   	</div>
 
   </Router>
