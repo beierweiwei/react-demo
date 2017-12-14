@@ -30,17 +30,17 @@ class Cart extends React.Component {
 		super(props);
 		this.state = {};
 		this.state.prods = moco.slice();
-		this.isEdit = false;
-		this.editorprods = moco.slice();
-		this.state.editor = {
-			isEdit: false,
-			prods: moco.slice(),
-		};
+		this.state.isEdit = false;
+		this.state.prodsbk =[];
+		this.state.selector = Array(this.state.prods.length).fill(false);
 		this.countCart = this.countCart.bind(this);
 		this.changeEditorStatus = this.changeEditorStatus.bind(this);
 		this.handleNumChange = this.handleNumChange.bind(this);
+		this.handleSelect = this.handleSelect.bind(this);
+		this.handleSelectAll = this.handleSelectAll.bind(this);
 		this.saveEditor = this.saveEditor.bind(this);
 		this.cancelEditor = this.cancelEditor.bind(this);
+		this.deletSelected = this.deletSelected.bind(this);
 	}
 	cheng(a, b) {
 		return a * b;
@@ -52,6 +52,7 @@ class Cart extends React.Component {
 
 		//计算商品总价、数量
 	countCart(){
+		if(this.state.isEdit) return [0, 0];
 		const prods = this.state.prods;		
 		if(prods.length === 0) return [0, 0];
 		var i = 0, len = prods.length, countTemp, allMoney = 0, allNum = 0;
@@ -64,13 +65,40 @@ class Cart extends React.Component {
 		return [allMoney, allNum];
 	}
 
+	isSelectAll() {
+		const selector = this.state.selector;
+		const sl = selector.length && selector.filter(v => v === true).length === selector.length;
+		console.log('isSelect all', sl);
+		return sl;
+	}
+
 	changeEditorStatus() {
-		this.setState({isEdit: !this.state.isEdit})
+		this.setState({isEdit: !this.state.isEdit}, () => {
+		
+			if(this.state.isEdit) {
+				const prodsbk = this.state.prods.slice(0);
+				this.setState({prodsbk});
+			}
+			
+		})
+	}
+
+	handleSelect(idx, e) {
+		//生成prods副本
+		const selector = this.state.selector.slice(0);
+		const isSelected =  e.target.checked;
+		selector[idx] = isSelected;
+		this.setState({selector: selector}, () => {})
+	}
+
+	handleSelectAll() {
+		const selector = Array(this.state.prods.length).fill(true);
+		this.setState({selector});
 	}
 
 	handleNumChange(idx, num, type, e) {
 		//Array.slice() 和解构都是浅拷贝，引用对象依然相互关联，所以要对修改后的对象实现替换。
-		const prods = [...this.state.editorprods];
+		const prods = [...this.state.prods];
 		const preprod = prods[idx];
 		var newprod;
 
@@ -89,23 +117,36 @@ class Cart extends React.Component {
 		}
 
 		prods.splice(idx, 1, newprod)
-		this.setState({editorprods: prods});
-		
+		this.setState({prods});
 	}
 
 	saveEditor() {
-		this.setState({prods: this.state.editorprods})
+		// this.setState({prods: this.state.prodsbk})
 	}
 	cancelEditor() {
-		// this.setState((prevState, props) => {
-		//   let prods = prevState.prods;
-		// 	let editor = prevState.editor;
-		// 	return {...editor, prods};
-		// });
+		const preprods = this.state.prodsbk.slice(0); 
+		this.setState({prods: preprods, selector: Array(preprods.length).fill(false)})
+	}
+
+	deletSelected() {
+		const selector = this.state.selector;
+		const prods = this.state.prods.slice(0);
+		const filterProds = prods.map((v, i) => {
+			return selector[i] ? false : v;
+		}).filter(v => v != false);
+
+		this.setState({prods:filterProds, selector: Array(filterProds.length).fill(false)}, () => console.log('selector after delet', this.isSelectAll(), this.state.selector));
+		//清空selector
+		//this.setState({selector: Array(filterProds.length).fill(false)});
+		
+	}
+	gopay() {
+
 	}
 
 	render() {
 		const countCart = this.countCart();
+		const isSelectAll = this.isSelectAll();
 	
 		return (
 			<div className="cart-container">
@@ -123,15 +164,24 @@ class Cart extends React.Component {
 				</div>
 
 				<CartProds 
-					prods={this.state.isEdit ? this.state.editorprods : this.state.prods} 
+					prods={this.state.prods} 
+					selector = {this.state.selector}
 					editorStatus = {this.state.isEdit}
-					onSelect={this.handleSelectChange} 
+					onSelect={this.handleSelect} 
 					onNumChange={this.handleNumChange}
 				>
-
 				</CartProds>
 
-				<CountAll allMoney={countCart[0]} allNum={countCart[1]}></CountAll>
+				<CountAll 
+					allMoney={countCart[0]} 
+					allNum={countCart[1]} 
+					isSelectAll={isSelectAll}
+					isEdit={this.state.isEdit}
+					handleSlectAll={this.handleSelectAll}
+					deletSelected={this.deletSelected}
+					gopay={this.gopay} 
+				>
+				</CountAll>
 			</div>
 		)
 	};
@@ -140,7 +190,7 @@ class Cart extends React.Component {
 function CartProds(props) {
 	var ui = props.prods.map((item, idx) => {
 			return (
-				<li key={idx}><img src={item.imgUrl}/>
+				<li key={idx}><input type="checkbox" checked={props.selector[idx]} onClick={(e) => {props.onSelect(idx,e)}}/><img src={item.imgUrl}/>
 					<span>{item.title}</span>
 					<span>价格：{item.price}</span>
 					<ChangeProdNum 
@@ -170,9 +220,16 @@ function ChangeProdNum(props) {
 }
 
 function CountAll(props) {
+	const allSelectStyle = props.isSelectAll ? {color: '#f60'} : {};
+	var actionUi;
+	if(props.isEdit) {
+		actionUi = (<span onClick={props.deletSelected}>删除所选</span>)
+	}else{
+		actionUi = (<span onClick={props.goPay}>去支付</span>)
+	}
 	return (
 		<div>
-			<span>总价：{props.allMoney}; 总数： {props.allNum}</span>
+			<span>总价：{props.allMoney}; 总数： {props.allNum}</span><span onClick={props.handleSlectAll} style={allSelectStyle}>全选</span>{actionUi}
 		</div>
 	)
 }
